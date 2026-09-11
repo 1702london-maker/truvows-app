@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Truvows",
+    "slug": "truvows",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#4C9A7D"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.budruum.truvows"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4C9A7D"
+      },
+      "package": "com.budruum.truvows"
+    },
+    "plugins": ["expo-router", "expo-font", "expo-secure-store"],
+    "scheme": "truvows",
+    "web": { "bundler": "metro" }
+  }
+}
