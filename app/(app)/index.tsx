@@ -88,8 +88,8 @@ export default function Discover() {
       ) : profiles.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyIcon}>🌿</Text>
-          <Text style={styles.emptyTitle}>No profiles yet</Text>
-          <Text style={styles.emptyText}>Check back soon — more members are joining every day</Text>
+          <Text style={styles.emptyTitle}>Verified members only</Text>
+          <Text style={styles.emptyText}>Truvows members are verified before they appear here. Check back soon — more verified members are joining every day.</Text>
         </View>
       ) : (
         <FlatList
