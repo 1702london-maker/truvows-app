@@ -8,9 +8,12 @@ import {
   Platform,
   Alert,
   Switch,
+  TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -28,6 +31,8 @@ export default function ProfileScreen() {
   const [city, setCity] = useState('');
   const [occupation, setOccupation] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -48,6 +53,7 @@ export default function ProfileScreen() {
       setCity(data.city || '');
       setOccupation(data.occupation || '');
       setIsActive(data.is_active ?? true);
+      setAvatarUrl(data.avatar_url || null);
     }
     setLoading(false);
   }
@@ -64,6 +70,41 @@ export default function ProfileScreen() {
       Alert.alert('Error', 'Could not save profile');
     } else {
       Alert.alert('Saved', 'Your profile has been updated');
+    }
+  }
+
+  async function handlePickPhoto() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow access to your photos to upload an avatar.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    setUploadingPhoto(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const ext = asset.uri.split('.').pop() || 'jpg';
+      const path = `${user.id}/avatar.${ext}`;
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: `image/${ext}` });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('user_id', user.id);
+      setAvatarUrl(publicUrl);
+      Alert.alert('Photo updated', 'Your profile photo has been saved.');
+    } catch (e: any) {
+      Alert.alert('Upload failed', e.message);
+    } finally {
+      setUploadingPhoto(false);
     }
   }
 
@@ -96,11 +137,18 @@ export default function ProfileScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.avatarSection}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {firstName ? firstName.slice(0, 1).toUpperCase() : '?'}
-              </Text>
-            </View>
+            <TouchableOpacity onPress={handlePickPhoto} disabled={uploadingPhoto}>
+              <View style={styles.avatar}>
+                {avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>
+                    {firstName ? firstName.slice(0, 1).toUpperCase() : '?'}
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.changePhotoText}>{uploadingPhoto ? 'Uploading…' : 'Tap to change photo'}</Text>
+            </TouchableOpacity>
             <Text style={styles.name}>{firstName || 'Your Profile'}</Text>
             <Text style={styles.modeLabel}>{profile?.mode ? `Mode: ${profile.mode}` : ''}</Text>
           </View>
@@ -181,6 +229,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   avatarText: { fontSize: 36, fontWeight: '800', color: colors.primary },
+  avatarImage: { width: 88, height: 88, borderRadius: 44 },
+  changePhotoText: { fontSize: 12, color: colors.primary, textAlign: 'center', marginTop: 4 },
   name: { fontSize: 22, fontWeight: '800', color: colors.dark },
   modeLabel: { fontSize: 13, color: colors.muted, marginTop: 2, textTransform: 'capitalize' },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 24 },
